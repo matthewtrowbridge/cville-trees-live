@@ -1,64 +1,1097 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cville Trees — AI Prototyping Workshop</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: #070d0a;
-    color: #e2e8e0;
-    font-family: 'IBM Plex Sans', sans-serif;
-    padding: 2rem;
-    text-align: center;
-  }
-  .icon { font-size: 3rem; margin-bottom: 1.5rem; }
-  h1 {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: clamp(1.5rem, 4vw, 2.5rem);
-    font-weight: 700;
-    color: white;
-    margin-bottom: 0.75rem;
-    line-height: 1.2;
-  }
-  .accent { color: #4ade80; }
-  p {
-    font-size: 1rem;
-    color: rgba(255,255,255,0.5);
-    max-width: 440px;
-    line-height: 1.6;
-    margin-bottom: 0.5rem;
-  }
-  .cycle {
-    margin-top: 2rem;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
-    color: rgba(255,255,255,0.25);
-    letter-spacing: 0.05em;
-  }
-  .footer {
-    position: fixed;
-    bottom: 1.5rem;
-    font-size: 0.7rem;
-    color: rgba(255,255,255,0.12);
-    font-family: 'JetBrains Mono', monospace;
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Charlottesville Tree Equity</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Fraunces:wght@400;600;700;800;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
 </head>
 <body>
-  <div class="icon">🌳</div>
-  <h1>Cville Trees</h1>
-  <h1><span class="accent">Building...</span></h1>
-  <p>A tool is being built right now in a live workshop at UVA's Batten School.</p>
-  <p>Refresh this page in a few minutes.</p>
-  <div class="cycle">🔍 explore → 🎯 articulate → ⚡ build → 🔄 iterate</div>
-  <div class="footer">UVA Medical Design Program × Batten School</div>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo, useEffect, useRef } = React;
+
+    /* =========================================================
+       SHARED DATA — Dashboard Tracts
+       ========================================================= */
+    const DASHBOARD_TRACTS = [
+      { id:"000200",name:"10th & Page / Starr Hill",quad:"SW",lat:38.0265,lon:-78.4935,income:20100,nonwhite:72,renter:78,lifeExp:74,noInsurance:14,heartDisease:8.1,asthma:11.3,highBP:34.2,obesity:38.1,diabetes:13.4,canopy:12,heat:105.2,energyBurden:10.1,tes:51,trees:9,poorCrit:4,note:"Historically redlined Black neighborhood; lowest canopy in city"},
+      { id:"001100",name:"Fifeville / Hardy",quad:"SW",lat:38.0255,lon:-78.4920,income:28700,nonwhite:65,renter:74,lifeExp:75,noInsurance:12,heartDisease:7.8,asthma:11.0,highBP:33.5,obesity:36.8,diabetes:12.8,canopy:15,heat:104.1,energyBurden:9.3,tes:54,trees:15,poorCrit:8,note:"Historically Black; adjacent to 10th & Page; canopy loss"},
+      { id:"000300",name:"Ridge Street",quad:"SW",lat:38.0235,lon:-78.4880,income:31500,nonwhite:58,renter:71,lifeExp:74,noInsurance:11,heartDisease:7.4,asthma:10.8,highBP:32.1,obesity:35.6,diabetes:12.1,canopy:18,heat:102.8,energyBurden:8.4,tes:58,trees:8,poorCrit:2,note:"Low life expectancy; high renter burden"},
+      { id:"000800",name:"JPA / Fry's Spring",quad:"SW",lat:38.0240,lon:-78.4990,income:42800,nonwhite:41,renter:62,lifeExp:76,noInsurance:9,heartDisease:6.8,asthma:10.2,highBP:30.5,obesity:33.4,diabetes:11.5,canopy:22,heat:101.5,energyBurden:7.2,tes:63,trees:15,poorCrit:9,note:"Student/low-income mix; canopy declining"},
+      { id:"000400",name:"Belmont / Carlton",quad:"SE",lat:38.0270,lon:-78.4750,income:48200,nonwhite:35,renter:55,lifeExp:78,noInsurance:7,heartDisease:6.2,asthma:9.8,highBP:28.4,obesity:30.2,diabetes:10.3,canopy:28,heat:99.4,energyBurden:5.2,tes:72,trees:28,poorCrit:12,note:"Mixed-income; gentrifying area"},
+      { id:"000900",name:"Greenbrier / Hydraulic",quad:"NW",lat:38.0430,lon:-78.4950,income:61200,nonwhite:38,renter:48,lifeExp:79,noInsurance:6,heartDisease:5.9,asthma:9.5,highBP:27.3,obesity:28.9,diabetes:9.8,canopy:32,heat:98.2,energyBurden:4.5,tes:74,trees:35,poorCrit:4,note:"Commercial corridor; mixed use"},
+      { id:"000500",name:"Woolen Mills / Rivanna",quad:"SE",lat:38.0310,lon:-78.4680,income:55100,nonwhite:28,renter:42,lifeExp:80,noInsurance:5,heartDisease:5.8,asthma:9.2,highBP:26.1,obesity:27.8,diabetes:9.1,canopy:35,heat:97.1,energyBurden:4.1,tes:78,trees:7,poorCrit:2,note:"Moderate canopy; near river corridor"},
+      { id:"000700",name:"Barracks / Rugby",quad:"NE",lat:38.0410,lon:-78.4780,income:76500,nonwhite:22,renter:35,lifeExp:82,noInsurance:4,heartDisease:5.2,asthma:8.7,highBP:24.1,obesity:24.5,diabetes:8.0,canopy:44,heat:94.8,energyBurden:3.1,tes:87,trees:14,poorCrit:2,note:"Near UVA; established neighborhoods with mature trees"},
+      { id:"000600",name:"Martha Jefferson / Locust Grove",quad:"NE",lat:38.0380,lon:-78.4710,income:87300,nonwhite:18,renter:28,lifeExp:84,noInsurance:3,heartDisease:4.9,asthma:8.4,highBP:22.8,obesity:22.1,diabetes:7.2,canopy:48,heat:93.6,energyBurden:2.8,tes:91,trees:30,poorCrit:6,note:"Highest life expectancy; wealthy; dense canopy"},
+      { id:"001000",name:"Rose Hill / Venable",quad:"NW",lat:38.0370,lon:-78.4900,income:93800,nonwhite:15,renter:22,lifeExp:83,noInsurance:2,heartDisease:4.6,asthma:8.1,highBP:21.5,obesity:20.8,diabetes:6.8,canopy:52,heat:92.4,energyBurden:2.4,tes:94,trees:39,poorCrit:9,note:"Highest income; highest canopy; lowest heat"},
+    ];
+
+    const DASHBOARD_METRICS = [
+      { key:"tes",label:"Tree Equity Score",unit:"/100",colorDir:"asc",desc:"Lower = more need"},
+      { key:"canopy",label:"Tree Canopy",unit:"%",colorDir:"asc",desc:"Percentage of area with canopy cover"},
+      { key:"heat",label:"Afternoon Heat",unit:"\u00b0F",colorDir:"desc",desc:"August afternoon heat index"},
+      { key:"heartDisease",label:"Heart Disease",unit:"%",colorDir:"desc",desc:"Coronary heart disease prevalence"},
+      { key:"asthma",label:"Asthma",unit:"%",colorDir:"desc",desc:"Current asthma prevalence"},
+      { key:"income",label:"Median Income",unit:"$",colorDir:"asc",desc:"Median household income"},
+      { key:"nonwhite",label:"People of Color",unit:"%",colorDir:"none",desc:"Non-white population"},
+      { key:"lifeExp",label:"Life Expectancy",unit:"yr",colorDir:"asc",desc:"Life expectancy at birth"},
+      { key:"energyBurden",label:"Energy Burden",unit:"%",colorDir:"desc",desc:"% income spent on utilities"},
+    ];
+
+    /* =========================================================
+       SHARED DATA — Shade Score Tracts
+       ========================================================= */
+    const SHADE_TRACTS = [
+      { id:"000200",name:"10th & Page",streets:["10th st","page st","commerce st","west main st","oak st","6th st","7th st","8th st","9th st","starr hill"],lat:38.0265,lon:-78.4935,income:20100,nonwhite:72,renter:78,lifeExp:74,heartDisease:8.1,asthma:11.3,highBP:34.2,obesity:38.1,canopy:12,heat:105.2,energyBurden:10.1,tes:51,trees:9,poorCrit:4,avgHomeValue:245000,estCoolingSave:0,potentialValueAdd:18200,nearestPark:"McGuffey Park",parkDist:"0.3 mi",shade:"Minimal",historyNote:"Built as a Black neighborhood under racial covenants. One of the few areas people of color could own homes in the 1800s-1900s."},
+      { id:"001100",name:"Fifeville",streets:["fifeville","cherry ave","6th st sw","fife","hardy dr","king st","prospect ave","elliott ave"],lat:38.0255,lon:-78.4920,income:28700,nonwhite:65,renter:74,lifeExp:75,heartDisease:7.8,asthma:11.0,highBP:33.5,obesity:36.8,canopy:15,heat:104.1,energyBurden:9.3,tes:54,trees:15,poorCrit:8,avgHomeValue:278000,estCoolingSave:0,potentialValueAdd:16800,nearestPark:"Tonsler Park",parkDist:"0.2 mi",shade:"Very Low",historyNote:"Historic Black community adjacent to 10th & Page. Experiencing rapid canopy loss despite community efforts."},
+      { id:"000300",name:"Ridge Street",streets:["ridge st","south st","garrett st","4th st sw","monticello ave","avon st"],lat:38.0235,lon:-78.4880,income:31500,nonwhite:58,renter:71,lifeExp:74,heartDisease:7.4,asthma:10.8,highBP:32.1,obesity:35.6,canopy:18,heat:102.8,energyBurden:8.4,tes:58,trees:8,poorCrit:2,avgHomeValue:310000,estCoolingSave:85,potentialValueAdd:15400,nearestPark:"Forest Hill Park",parkDist:"0.5 mi",shade:"Low",historyNote:"Near the former Vinegar Hill neighborhood, razed in 1965 through eminent domain, displacing 600+ Black families."},
+      { id:"000800",name:"JPA / Fry's Spring",streets:["jefferson park ave","jpa","fry's spring","maury ave","cherry","fontaine"],lat:38.0240,lon:-78.4990,income:42800,nonwhite:41,renter:62,lifeExp:76,heartDisease:6.8,asthma:10.2,highBP:30.5,obesity:33.4,canopy:22,heat:101.5,energyBurden:7.2,tes:63,trees:15,poorCrit:9,avgHomeValue:345000,estCoolingSave:180,potentialValueAdd:12100,nearestPark:"Fry's Spring Beach Club",parkDist:"0.4 mi",shade:"Below Average",historyNote:"Mix of student housing and longtime residents. Canopy coverage declining as older trees are removed for development."},
+      { id:"000400",name:"Belmont",streets:["belmont","carlton","avon","monticello rd","hinton","naylor","rialto"],lat:38.0270,lon:-78.4750,income:48200,nonwhite:35,renter:55,lifeExp:78,heartDisease:6.2,asthma:9.8,highBP:28.4,obesity:30.2,canopy:28,heat:99.4,energyBurden:5.2,tes:72,trees:28,poorCrit:12,avgHomeValue:420000,estCoolingSave:340,potentialValueAdd:8900,nearestPark:"Belmont Park",parkDist:"0.3 mi",shade:"Average",historyNote:"Historically working-class, now a gentrifying neighborhood with a growing restaurant scene."},
+      { id:"000900",name:"Greenbrier",streets:["greenbrier","hydraulic","berkmar","rio rd","albemarle sq","fashion sq"],lat:38.0430,lon:-78.4950,income:61200,nonwhite:38,renter:48,lifeExp:79,heartDisease:5.9,asthma:9.5,highBP:27.3,obesity:28.9,canopy:32,heat:98.2,energyBurden:4.5,tes:74,trees:35,poorCrit:4,avgHomeValue:385000,estCoolingSave:420,potentialValueAdd:7200,nearestPark:"Greenleaf Park",parkDist:"0.6 mi",shade:"Average",historyNote:"Commercial corridor with mixed residential. Newer development is increasing impervious surface area."},
+      { id:"000500",name:"Woolen Mills",streets:["woolen mills","rivanna","marchant","east market","meade","franklin"],lat:38.0310,lon:-78.4680,income:55100,nonwhite:28,renter:42,lifeExp:80,heartDisease:5.8,asthma:9.2,highBP:26.1,obesity:27.8,canopy:35,heat:97.1,energyBurden:4.1,tes:78,trees:7,poorCrit:2,avgHomeValue:465000,estCoolingSave:490,potentialValueAdd:5800,nearestPark:"Rivanna Trail",parkDist:"0.1 mi",shade:"Moderate",historyNote:"Former mill village along the Rivanna River. Mature tree corridor along the river provides significant cooling."},
+      { id:"000700",name:"Barracks / Rugby",streets:["barracks rd","rugby","ivy rd","alderman","emmet","barracks"],lat:38.0410,lon:-78.4780,income:76500,nonwhite:22,renter:35,lifeExp:82,heartDisease:5.2,asthma:8.7,highBP:24.1,obesity:24.5,canopy:44,heat:94.8,energyBurden:3.1,tes:87,trees:14,poorCrit:2,avgHomeValue:625000,estCoolingSave:680,potentialValueAdd:3200,nearestPark:"Azalea Park",parkDist:"0.3 mi",shade:"Good",historyNote:"Established residential area near UVA with mature street trees planted over multiple decades."},
+      { id:"000600",name:"Locust Grove",streets:["locust","martha jefferson","east high","free bridge","pantops","east rio"],lat:38.0380,lon:-78.4710,income:87300,nonwhite:18,renter:28,lifeExp:84,heartDisease:4.9,asthma:8.4,highBP:22.8,obesity:22.1,canopy:48,heat:93.6,energyBurden:2.8,tes:91,trees:30,poorCrit:6,avgHomeValue:710000,estCoolingSave:750,potentialValueAdd:2100,nearestPark:"Pen Park",parkDist:"0.4 mi",shade:"Very Good",historyNote:"Charlottesville's highest life expectancy tract. Dense canopy from mature oaks, maples, and native species."},
+      { id:"001000",name:"Rose Hill / Venable",streets:["rose hill","venable","park st","rugby rd","gordon ave","lewis mountain","wertland"],lat:38.0370,lon:-78.4900,income:93800,nonwhite:15,renter:22,lifeExp:83,heartDisease:4.6,asthma:8.1,highBP:21.5,obesity:20.8,canopy:52,heat:92.4,energyBurden:2.4,tes:94,trees:39,poorCrit:9,avgHomeValue:825000,estCoolingSave:820,potentialValueAdd:1500,nearestPark:"McIntire Park",parkDist:"0.2 mi",shade:"Excellent",historyNote:"Charlottesville's highest canopy coverage. Mature trees, homeownership, and sustained investment over generations."},
+    ];
+
+    /* =========================================================
+       NAV BAR — shared across views
+       ========================================================= */
+    function NavBar({ current, onNavigate }) {
+      return (
+        <div style={{
+          position:"sticky",top:0,zIndex:100,
+          background:current==="dashboard"?"rgba(2,6,23,0.92)":"rgba(245,245,240,0.92)",
+          backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",
+          borderBottom:current==="dashboard"?"1px solid #1e293b":"1px solid #e7e5e4",
+          padding:"8px 16px",display:"flex",alignItems:"center",gap:12
+        }}>
+          <button onClick={()=>onNavigate("home")} style={{
+            background:"none",border:"none",cursor:"pointer",fontSize:14,
+            color:current==="dashboard"?"#94a3b8":"#78716c",
+            fontFamily:"'Outfit', sans-serif",fontWeight:500,
+            display:"flex",alignItems:"center",gap:4
+          }}>
+            <span style={{fontSize:16}}>{"\u2190"}</span> Home
+          </button>
+          <div style={{flex:1}} />
+          <button onClick={()=>onNavigate(current==="dashboard"?"shade":"dashboard")} style={{
+            background:current==="dashboard"?"#1e293b":"#f5f5f4",
+            border:current==="dashboard"?"1px solid #334155":"1px solid #d6d3d1",
+            borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:12,
+            color:current==="dashboard"?"#94a3b8":"#78716c",
+            fontFamily:"'Outfit', sans-serif",fontWeight:500
+          }}>
+            {current==="dashboard"?"Shade Score \u2192":"Dashboard \u2192"}
+          </button>
+        </div>
+      );
+    }
+
+    /* =========================================================
+       DASHBOARD COMPONENTS
+       ========================================================= */
+    function getColor(val, min, max, dir) {
+      if (dir === "none") return "#64748b";
+      const t = (val - min) / (max - min || 1);
+      const norm = dir === "asc" ? t : 1 - t;
+      if (norm < 0.25) return "#dc2626";
+      if (norm < 0.5) return "#ea580c";
+      if (norm < 0.75) return "#ca8a04";
+      return "#16a34a";
+    }
+
+    function BarChart({ data, metric, selected, onSelect }) {
+      const m = DASHBOARD_METRICS.find(x => x.key === metric);
+      const vals = data.map(d => d[metric]);
+      const min = Math.min(...vals);
+      const max = Math.max(...vals);
+      const sorted = [...data].sort((a, b) =>
+        m.colorDir === "desc" ? b[metric] - a[metric] : a[metric] - b[metric]
+      );
+      return (
+        <div style={{ width: "100%" }}>
+          {sorted.map((d) => {
+            const pct = ((d[metric] - min) / (max - min || 1)) * 100;
+            const isSelected = selected?.id === d.id;
+            const color = getColor(d[metric], min, max, m.colorDir);
+            return (
+              <div key={d.id} onClick={() => onSelect(d)} style={{
+                display: "flex", alignItems: "center", gap: 8, marginBottom: 3,
+                cursor: "pointer", padding: "3px 6px", borderRadius: 4,
+                background: isSelected ? "#1e293b" : "transparent",
+                transition: "background 0.15s"
+              }}>
+                <div style={{
+                  width: 150, fontSize: 11, color: isSelected ? "#f8fafc" : "#94a3b8",
+                  fontFamily: "'DM Sans', sans-serif", flexShrink: 0, textAlign: "right",
+                  fontWeight: isSelected ? 600 : 400
+                }}>{d.name.split("/")[0].trim()}</div>
+                <div style={{ flex: 1, height: 18, background: "#1e293b", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{
+                    width: `${Math.max(pct, 3)}%`, height: "100%",
+                    background: color, borderRadius: 3, transition: "width 0.4s ease"
+                  }} />
+                </div>
+                <div style={{
+                  width: 55, fontSize: 12, color: isSelected ? "#f8fafc" : "#cbd5e1",
+                  fontFamily: "'JetBrains Mono', monospace", textAlign: "right", flexShrink: 0,
+                  fontWeight: isSelected ? 700 : 400
+                }}>
+                  {m.unit === "$" ? `$${(d[metric] / 1000).toFixed(0)}k` : `${d[metric]}${m.unit}`}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function StatCard({ label, value, color, sub }) {
+      return (
+        <div style={{
+          background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8,
+          padding: "12px 14px", flex: "1 1 0", minWidth: 120
+        }}>
+          <div style={{ fontSize: 10, color: "#64748b", fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{label}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: color || "#f8fafc", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{value}</div>
+          {sub && <div style={{ fontSize: 10, color: "#475569", marginTop: 2, fontFamily: "'DM Sans', sans-serif" }}>{sub}</div>}
+        </div>
+      );
+    }
+
+    function ComparisonPanel({ tract }) {
+      const best = DASHBOARD_TRACTS.reduce((a, b) => a.tes > b.tes ? a : b);
+      const worst = DASHBOARD_TRACTS.reduce((a, b) => a.tes < b.tes ? a : b);
+      const compare = tract.tes <= 65 ? best : worst;
+      const gap = Math.abs(tract.heat - compare.heat);
+      const lifeGap = Math.abs(tract.lifeExp - compare.lifeExp);
+      return (
+        <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 10, padding: 16, marginTop: 12 }}>
+          <div style={{ fontSize: 11, color: "#64748b", fontFamily: "'DM Sans', sans-serif", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>
+            {tract.name} vs {compare.name}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+            {[
+              { label: "Canopy Cover", a: `${tract.canopy}%`, b: `${compare.canopy}%` },
+              { label: "Afternoon Temp", a: `${tract.heat}\u00b0F`, b: `${compare.heat}\u00b0F` },
+              { label: "Heart Disease", a: `${tract.heartDisease}%`, b: `${compare.heartDisease}%` },
+              { label: "Life Expectancy", a: `${tract.lifeExp} yr`, b: `${compare.lifeExp} yr` },
+              { label: "Energy Burden", a: `${tract.energyBurden}%`, b: `${compare.energyBurden}%` },
+              { label: "Median Income", a: `$${(tract.income / 1000).toFixed(0)}k`, b: `$${(compare.income / 1000).toFixed(0)}k` },
+            ].map((row, i) => (
+              <div key={i} style={{ display: "contents" }}>
+                <div style={{ color: "#f8fafc", textAlign: "right", padding: "4px 0", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{row.a}</div>
+                <div style={{ color: "#475569", textAlign: "center", padding: "4px 8px", fontSize: 10, alignSelf: "center" }}>{row.label}</div>
+                <div style={{ color: "#64748b", textAlign: "left", padding: "4px 0", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{row.b}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{
+            marginTop: 12, padding: "10px 12px", borderRadius: 6,
+            background: "linear-gradient(135deg, #7f1d1d22, #1e293b)",
+            border: "1px solid #7f1d1d44", fontSize: 12, color: "#fca5a5",
+            fontFamily: "'DM Sans', sans-serif", lineHeight: 1.5
+          }}>
+            Residents in <strong>{tract.name}</strong> face {gap.toFixed(1)}&deg;F hotter afternoons,
+            {" "}{lifeGap}-year shorter life expectancy, and spend {(tract.energyBurden - compare.energyBurden).toFixed(1)}x more
+            of their income on energy than those in <strong>{compare.name}</strong>.
+          </div>
+        </div>
+      );
+    }
+
+    /* =========================================================
+       MAP VIEW — Leaflet with fly-to animation
+       ========================================================= */
+    function MapView({ tracts, metric, selected, onSelect }) {
+      const mapRef = useRef(null);
+      const mapInstance = useRef(null);
+      const markersRef = useRef([]);
+
+      const m = DASHBOARD_METRICS.find(x => x.key === metric);
+      const vals = tracts.map(d => d[metric]);
+      const min = Math.min(...vals);
+      const max = Math.max(...vals);
+
+      useEffect(() => {
+        if (!mapRef.current || mapInstance.current) return;
+        const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false })
+          .setView([38.033, -78.485], 13);
+        L.control.zoom({ position: "bottomright" }).addTo(map);
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+          attribution: "\u00a9 OpenStreetMap, CartoDB", maxZoom: 18
+        }).addTo(map);
+        mapInstance.current = map;
+        return () => { map.remove(); mapInstance.current = null; };
+      }, []);
+
+      useEffect(() => {
+        if (!mapInstance.current) return;
+        const map = mapInstance.current;
+        markersRef.current.forEach(m => map.removeLayer(m.circle));
+        markersRef.current = [];
+        tracts.forEach(t => {
+          const color = getColor(t[metric], min, max, m ? m.colorDir : "asc");
+          const isSel = selected?.id === t.id;
+          const circle = L.circleMarker([t.lat, t.lon], {
+            radius: isSel ? 16 : 10, fillColor: color, color: isSel ? "#ffffff" : color,
+            weight: isSel ? 3 : 1.5, opacity: 1, fillOpacity: isSel ? 0.9 : 0.65
+          }).addTo(map);
+          circle.bindTooltip(
+            `<div style="font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600">${t.name.split("/")[0].trim()}</div>` +
+            `<div style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${color}">${m.unit === "$" ? "$" + (t[metric]/1000).toFixed(0) + "k" : t[metric] + m.unit}</div>`,
+            { direction: "top", offset: [0, -8], className: "" }
+          );
+          circle.on("click", () => onSelect(t));
+          markersRef.current.push({ id: t.id, circle });
+        });
+      }, [metric, selected]);
+
+      useEffect(() => {
+        if (selected && mapInstance.current) {
+          mapInstance.current.flyTo([selected.lat, selected.lon], 14.5, { duration: 1.2 });
+        }
+      }, [selected]);
+
+      return <div ref={mapRef} style={{ height: 300, borderRadius: 10, border: "1px solid #1e293b", marginTop: 12 }} />;
+    }
+
+    /* =========================================================
+       DATA SONIFICATION — Hear the inequality
+       ========================================================= */
+    function Sonification({ tracts }) {
+      const [playing, setPlaying] = useState(false);
+      const [currentIdx, setCurrentIdx] = useState(-1);
+
+      const play = () => {
+        if (playing) return;
+        setPlaying(true);
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const sorted = [...tracts].sort((a, b) => a.tes - b.tes);
+        const noteTime = 0.45;
+
+        sorted.forEach((t, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          // Map TES (51-94) to pitch: low equity = low dissonant, high equity = high consonant
+          const baseFreq = 180 + ((t.tes - 50) / 44) * 520;
+          osc.frequency.value = baseFreq;
+          // Low equity = harsh sawtooth, high equity = warm sine
+          osc.type = t.tes < 65 ? "sawtooth" : t.tes < 80 ? "triangle" : "sine";
+          gain.gain.setValueAtTime(0, ctx.currentTime + i * noteTime);
+          gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + i * noteTime + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * noteTime + noteTime - 0.05);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(ctx.currentTime + i * noteTime);
+          osc.stop(ctx.currentTime + (i + 1) * noteTime);
+
+          setTimeout(() => setCurrentIdx(i), i * noteTime * 1000);
+        });
+
+        // Final chord: play lowest and highest together to contrast
+        const chordTime = sorted.length * noteTime;
+        [sorted[0], sorted[sorted.length - 1]].forEach((t, j) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.frequency.value = 180 + ((t.tes - 50) / 44) * 520;
+          osc.type = j === 0 ? "sawtooth" : "sine";
+          gain.gain.setValueAtTime(0, ctx.currentTime + chordTime);
+          gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + chordTime + 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + chordTime + 1.2);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(ctx.currentTime + chordTime);
+          osc.stop(ctx.currentTime + chordTime + 1.3);
+        });
+
+        setTimeout(() => { setPlaying(false); setCurrentIdx(-1); ctx.close(); },
+          (sorted.length * noteTime + 1.5) * 1000);
+      };
+
+      const sorted = [...tracts].sort((a, b) => a.tes - b.tes);
+
+      return (
+        <div style={{
+          background: "#0f172a", border: "1px solid #1e293b", borderRadius: 10,
+          padding: 16, marginTop: 12
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#f8fafc", fontFamily: "'DM Sans', sans-serif" }}>
+                Hear the Inequality
+              </div>
+              <div style={{ fontSize: 10, color: "#64748b", fontFamily: "'DM Sans', sans-serif", marginTop: 2 }}>
+                Each neighborhood plays as a tone &mdash; pitch and timbre map to Tree Equity Score.
+                Low-equity areas sound low and harsh; high-equity areas sound high and warm.
+              </div>
+            </div>
+            <button onClick={play} disabled={playing} style={{
+              padding: "8px 16px", background: playing ? "#1e293b" : "#3b82f6",
+              border: "none", borderRadius: 8, cursor: playing ? "default" : "pointer",
+              color: "#f8fafc", fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+              flexShrink: 0, transition: "background 0.2s"
+            }}>
+              {playing ? "\u266b Playing..." : "\ud83d\udd0a Play"}
+            </button>
+          </div>
+          <div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 48 }}>
+            {sorted.map((t, i) => {
+              const h = 12 + ((t.tes - 50) / 44) * 36;
+              const isActive = i === currentIdx;
+              return (
+                <div key={t.id} style={{
+                  flex: 1, height: h, borderRadius: 3,
+                  background: isActive ? "#3b82f6" : getColor(t.tes, 51, 94, "asc"),
+                  opacity: isActive ? 1 : 0.5,
+                  transition: "all 0.15s",
+                  transform: isActive ? "scaleY(1.3)" : "scaleY(1)",
+                  transformOrigin: "bottom"
+                }}>
+                  <div style={{
+                    fontSize: 7, color: "#f8fafc", textAlign: "center", marginTop: -14,
+                    fontFamily: "'JetBrains Mono', monospace", fontWeight: isActive ? 700 : 400,
+                    opacity: isActive ? 1 : 0
+                  }}>{t.tes}</div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 9, color: "#475569", fontFamily: "'DM Sans', sans-serif" }}>
+            <span>{sorted[0].name.split("/")[0].trim()} (TES {sorted[0].tes})</span>
+            <span>{sorted[sorted.length - 1].name.split("/")[0].trim()} (TES {sorted[sorted.length - 1].tes})</span>
+          </div>
+        </div>
+      );
+    }
+
+    /* =========================================================
+       TREE PLANTING SIMULATOR
+       ========================================================= */
+    function TreeSimulator({ tract }) {
+      const [trees, setTrees] = useState(0);
+      // Research-based projections:
+      // Large tree canopy ~1,600 sq ft after 20 years
+      // Avg tract ~0.5 sq mi = 13,939,200 sq ft → each tree = ~0.011% canopy
+      const canopyGain = trees * 0.012;
+      const projCanopy = Math.min(tract.canopy + canopyGain, 60);
+      // 10% canopy increase ≈ 1.5°F cooling (EPA research)
+      const tempDrop = canopyGain * 0.15;
+      const projTemp = Math.max(tract.heat - tempDrop, 90);
+      // Energy: shade trees save ~$30-50/year per tree near homes
+      const energySavings = Math.round(trees * 38);
+      // Property value: $3,000-$12,000 per large tree; use conservative $5k/tree scaled by maturity
+      const valueAdd = Math.round(trees * 4200);
+      // CO2: mature tree absorbs ~48 lbs/year
+      const co2 = Math.round(trees * 48);
+
+      return (
+        <div style={{
+          background: "linear-gradient(135deg, #ecfdf5, #f0fdf4)", border: "1px solid #bbf7d0",
+          borderRadius: 12, padding: 16, marginTop: 16
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#166534", fontFamily: "'Fraunces', serif", marginBottom: 4 }}>
+            What If We Planted Trees?
+          </div>
+          <div style={{ fontSize: 12, color: "#15803d", marginBottom: 12, lineHeight: 1.5, fontFamily: "'Outfit', sans-serif" }}>
+            Drag the slider to see projected impact of tree planting in {tract.name} over 20 years.
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <input type="range" min={0} max={500} value={trees}
+              onChange={(e) => setTrees(+e.target.value)}
+              style={{ flex: 1, accentColor: "#16a34a", height: 6 }} />
+            <div style={{
+              fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 800,
+              color: "#166534", minWidth: 70, textAlign: "right"
+            }}>{trees}</div>
+          </div>
+          <div style={{ fontSize: 11, color: "#15803d", textAlign: "center", marginBottom: 12, fontFamily: "'Outfit', sans-serif" }}>
+            {trees === 0 ? "Move the slider to plant trees" : `${trees} trees planted in ${tract.name}`}
+          </div>
+          {trees > 0 && (
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, animation: "fadeIn 0.3s ease"
+            }}>
+              {[
+                { label: "Canopy Cover", before: `${tract.canopy}%`, after: `${projCanopy.toFixed(1)}%`, icon: "\ud83c\udf3f" },
+                { label: "Summer Temp", before: `${tract.heat}\u00b0F`, after: `${projTemp.toFixed(1)}\u00b0F`, icon: "\ud83c\udf21\ufe0f" },
+                { label: "Annual Energy Savings", before: "$0", after: `$${energySavings.toLocaleString()}`, icon: "\ud83d\udca1" },
+                { label: "Property Value Added", before: "$0", after: `$${valueAdd.toLocaleString()}`, icon: "\ud83c\udfe0" },
+                { label: "CO\u2082 Absorbed/Year", before: "0 lbs", after: `${co2.toLocaleString()} lbs`, icon: "\ud83c\udf0d" },
+                { label: "Shade Grade Projection", before: tract.canopy < 25 ? "Low" : "Moderate", after: projCanopy > 40 ? "Good" : projCanopy > 30 ? "Moderate" : "Improving", icon: "\u2b50" },
+              ].map((item, i) => (
+                <div key={i} style={{
+                  background: "#ffffff", borderRadius: 8, padding: "10px 12px",
+                  border: "1px solid #dcfce7"
+                }}>
+                  <div style={{ fontSize: 10, color: "#86efac", fontWeight: 500, fontFamily: "'Outfit', sans-serif" }}>
+                    {item.icon} {item.label}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 4 }}>
+                    <span style={{ fontSize: 11, color: "#a8a29e", fontFamily: "'JetBrains Mono', monospace", textDecoration: "line-through" }}>{item.before}</span>
+                    <span style={{ fontSize: 9, color: "#16a34a" }}>&rarr;</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: "#166534", fontFamily: "'Fraunces', serif" }}>{item.after}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {trees >= 200 && (
+            <div style={{
+              marginTop: 12, padding: "10px 12px", borderRadius: 8,
+              background: "#dcfce7", fontSize: 12, color: "#166534",
+              fontFamily: "'Outfit', sans-serif", lineHeight: 1.5, textAlign: "center"
+            }}>
+              {trees >= 400
+                ? `${trees} trees would transform ${tract.name}. That's roughly what Charlottesville ReLeaf plants city-wide in 3 years \u2014 concentrated in one neighborhood that needs it most.`
+                : `${trees} trees could meaningfully close the canopy gap between ${tract.name} and Charlottesville's shadiest neighborhoods.`}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function Dashboard() {
+      const [metric, setMetric] = useState("tes");
+      const [selected, setSelected] = useState(DASHBOARD_TRACTS[0]);
+      return (
+        <div style={{ minHeight: "100vh", background: "#020617", color: "#f8fafc", fontFamily: "'DM Sans', sans-serif", padding: "24px 20px" }}>
+          <div style={{ maxWidth: 800, margin: "0 auto" }}>
+            <div style={{ fontSize: 10, color: "#dc2626", fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>
+              Charlottesville Tree Equity Project
+            </div>
+            <h1 style={{
+              fontSize: 28, fontWeight: 700, lineHeight: 1.15, margin: 0,
+              background: "linear-gradient(135deg, #f8fafc, #94a3b8)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent"
+            }}>Where Shade Meets<br />Health &amp; Justice</h1>
+            <p style={{ fontSize: 13, color: "#64748b", marginTop: 8, lineHeight: 1.6, maxWidth: 600 }}>
+              Combining Charlottesville's tree inventory with CDC health data, Census demographics,
+              Heat Watch temperature readings, and Tree Equity Scores to reveal how canopy gaps
+              compound health disparities in vulnerable neighborhoods.
+            </p>
+
+            <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+              <StatCard label="Life Expectancy Gap" value="10 yr" color="#dc2626" sub={"74 yr (10th & Page) \u2192 84 yr (Locust Grove)"} />
+              <StatCard label="Canopy Gap" value={"4.3\u00d7"} color="#ea580c" sub="12% (SW) vs 52% (NW)" />
+              <StatCard label="Heat Disparity" value={"12.8\u00b0F"} color="#ca8a04" sub="Between coolest & hottest tracts" />
+              <StatCard label="Energy Burden Gap" value={"4.2\u00d7"} color="#f97316" sub="10.1% vs 2.4% of income" />
+            </div>
+
+            <div style={{ marginTop: 24, display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {DASHBOARD_METRICS.map(m => (
+                <button key={m.key} onClick={() => setMetric(m.key)} style={{
+                  padding: "5px 10px", border: "1px solid",
+                  borderColor: metric === m.key ? "#3b82f6" : "#1e293b",
+                  borderRadius: 5, fontSize: 11, cursor: "pointer",
+                  background: metric === m.key ? "#1e3a5f" : "#0f172a",
+                  color: metric === m.key ? "#93c5fd" : "#64748b",
+                  fontFamily: "'DM Sans', sans-serif", fontWeight: 500, transition: "all 0.15s"
+                }}>{m.label}</button>
+              ))}
+            </div>
+            <div style={{ fontSize: 10, color: "#475569", marginTop: 6 }}>
+              {DASHBOARD_METRICS.find(m => m.key === metric)?.desc} {"\u2014"} click any bar to explore a neighborhood
+            </div>
+
+            <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 10, padding: 16, marginTop: 12 }}>
+              <BarChart data={DASHBOARD_TRACTS} metric={metric} selected={selected} onSelect={setSelected} />
+            </div>
+
+            <MapView tracts={DASHBOARD_TRACTS} metric={metric} selected={selected} onSelect={setSelected} />
+
+            <Sonification tracts={DASHBOARD_TRACTS} />
+
+            {selected && (
+              <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 10, padding: 16, marginTop: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700 }}>{selected.name}</div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{selected.note}</div>
+                  </div>
+                  <div style={{
+                    padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    background: selected.tes < 60 ? "#7f1d1d" : selected.tes < 75 ? "#78350f" : "#14532d",
+                    color: selected.tes < 60 ? "#fca5a5" : selected.tes < 75 ? "#fcd34d" : "#86efac"
+                  }}>TES {selected.tes}</div>
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                  <StatCard label="Canopy" value={`${selected.canopy}%`} color={selected.canopy < 20 ? "#dc2626" : selected.canopy < 35 ? "#ca8a04" : "#16a34a"} />
+                  <StatCard label="Heat" value={`${selected.heat}\u00b0F`} color={selected.heat > 100 ? "#dc2626" : selected.heat > 96 ? "#ca8a04" : "#16a34a"} />
+                  <StatCard label="Heart Dis." value={`${selected.heartDisease}%`} color={selected.heartDisease > 7 ? "#dc2626" : selected.heartDisease > 6 ? "#ca8a04" : "#16a34a"} />
+                  <StatCard label="Asthma" value={`${selected.asthma}%`} color={selected.asthma > 10 ? "#dc2626" : selected.asthma > 9 ? "#ca8a04" : "#16a34a"} />
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                  <StatCard label="Income" value={`$${(selected.income / 1000).toFixed(0)}k`} color={selected.income < 35000 ? "#dc2626" : selected.income < 55000 ? "#ca8a04" : "#16a34a"} />
+                  <StatCard label="People of Color" value={`${selected.nonwhite}%`} color="#94a3b8" />
+                  <StatCard label="Energy Burden" value={`${selected.energyBurden}%`} color={selected.energyBurden > 7 ? "#dc2626" : selected.energyBurden > 4 ? "#ca8a04" : "#16a34a"} sub="% of income on utilities" />
+                  <StatCard label="Life Expect." value={`${selected.lifeExp} yr`} color={selected.lifeExp < 76 ? "#dc2626" : selected.lifeExp < 80 ? "#ca8a04" : "#16a34a"} />
+                </div>
+                <div style={{
+                  marginTop: 12, padding: "10px 12px", borderRadius: 6, background: "#020617",
+                  border: "1px solid #1e293b", fontSize: 12, color: "#94a3b8", fontFamily: "'DM Sans', sans-serif"
+                }}>
+                  <strong style={{ color: "#f8fafc" }}>Tree Inventory:</strong>{" "}
+                  {selected.trees} trees surveyed, {selected.poorCrit} in poor/critical condition
+                  ({selected.trees > 0 ? ((selected.poorCrit / selected.trees) * 100).toFixed(0) : 0}%)
+                  {selected.poorCrit / selected.trees > 0.4 && selected.canopy < 25 &&
+                    <span style={{ color: "#fca5a5" }}>
+                      {" "}&mdash; These trees aren't just struggling &mdash; they're the thin line of shade protecting a neighborhood
+                      where heat, heart disease, and poverty already converge.
+                    </span>
+                  }
+                </div>
+              </div>
+            )}
+
+            {selected && <ComparisonPanel tract={selected} />}
+
+            <div style={{
+              marginTop: 24, padding: 20, borderRadius: 10,
+              background: "linear-gradient(135deg, #0f172a, #1e293b)", border: "1px solid #334155"
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>The Pattern</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.7 }}>
+                Across Charlottesville's neighborhoods, a consistent pattern emerges: <strong style={{ color: "#f8fafc" }}>less
+                shade &rarr; more heat &rarr; worse health &rarr; higher costs &rarr; shorter lives</strong>. The four
+                lowest-canopy tracts (10th &amp; Page, Fifeville, Ridge Street, JPA) all sit in the SW quadrant.
+                They share a common profile: majority-renter, lower-income, higher proportion of residents
+                of color, and all carry the legacy of redlining and racial covenants.
+                <br /><br />
+                A resident of <strong style={{ color: "#fca5a5" }}>10th &amp; Page</strong> faces
+                105&deg;F heat index afternoons with only 12% canopy cover, has 8.1% coronary heart disease
+                prevalence, and spends over 10% of income on utilities. Two miles away in{" "}
+                <strong style={{ color: "#86efac" }}>Rose Hill</strong>, 52% canopy cover keeps
+                afternoons at 92&deg;F, heart disease drops to 4.6%, and energy costs take just 2.4% of income.
+                <br /><br />
+                These aren't separate problems &mdash; they're one system. Trees are health infrastructure,
+                and their absence is a measurable inequity.
+              </div>
+            </div>
+
+            <div style={{
+              marginTop: 16, padding: 14, borderRadius: 8, background: "#0f172a",
+              border: "1px solid #1e293b", fontSize: 10, color: "#475569", lineHeight: 1.6
+            }}>
+              <strong style={{ color: "#64748b" }}>Data Sources:</strong> Tree Inventory (uploaded dataset, 200 trees);
+              Health metrics from CDC PLACES 2025 (census tract estimates); Demographics from ACS 2019-2023;
+              Heat data from Charlottesville Heat Watch Campaign 2021; Tree Equity Scores from American Forests;
+              Life expectancy from County Health Rankings; Energy burden from Community Climate Collaborative;
+              Historical context from Charlottesville Community Wellbeing Profile (UVA Center for Community Partnerships, July 2025).
+            </div>
+            <div style={{ fontSize: 10, color: "#334155", marginTop: 12, textAlign: "center" }}>
+              Built for social entrepreneurship coursework &mdash; Charlottesville Tree Equity Project
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* =========================================================
+       SHADE SCORE COMPONENTS
+       ========================================================= */
+    function matchTract(input) {
+      const lower = input.toLowerCase().trim();
+      if (!lower) return null;
+      for (const t of SHADE_TRACTS) {
+        for (const st of t.streets) { if (lower.includes(st)) return t; }
+        if (lower.includes(t.name.toLowerCase())) return t;
+      }
+      if (lower.includes("22903")) return SHADE_TRACTS.find(t => t.id === "000800");
+      if (lower.includes("22902")) return SHADE_TRACTS.find(t => t.id === "000700");
+      if (lower.includes("22901")) return SHADE_TRACTS.find(t => t.id === "000600");
+      return null;
+    }
+
+    function ScoreRing({ score, size = 120, label }) {
+      const radius = (size - 16) / 2;
+      const circumference = 2 * Math.PI * radius;
+      const offset = circumference - (score / 100) * circumference;
+      const color = score < 40 ? "#ef4444" : score < 60 ? "#f97316" : score < 75 ? "#eab308" : score < 85 ? "#84cc16" : "#22c55e";
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+            <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#e7e5e4" strokeWidth={8} />
+            <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={8}
+              strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+              style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1)" }} />
+          </svg>
+          <div style={{
+            position: "relative", marginTop: -size / 2 - 16, height: size,
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center"
+          }}>
+            <div style={{ fontSize: size * 0.32, fontWeight: 800, color: "#1c1917", fontFamily: "'Fraunces', serif" }}>{score}</div>
+            <div style={{ fontSize: 10, color: "#78716c", fontFamily: "'Outfit', sans-serif", fontWeight: 500 }}>out of 100</div>
+          </div>
+          {label && <div style={{ fontSize: 11, color: "#78716c", marginTop: 4, fontFamily: "'Outfit', sans-serif", fontWeight: 500 }}>{label}</div>}
+        </div>
+      );
+    }
+
+    function GaugeBar({ label, value, max, unit, icon, color, note }) {
+      const pct = Math.min((value / max) * 100, 100);
+      return (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+            <div style={{ fontSize: 13, color: "#44403c", fontFamily: "'Outfit', sans-serif", fontWeight: 500 }}>{icon} {label}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#1c1917", fontFamily: "'Fraunces', serif" }}>
+              {unit === "$" ? `$${value.toLocaleString()}` : `${value}${unit}`}
+            </div>
+          </div>
+          <div style={{ height: 8, background: "#f5f5f4", borderRadius: 99, overflow: "hidden" }}>
+            <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.8s cubic-bezier(0.4, 0, 0.2, 1)" }} />
+          </div>
+          {note && <div style={{ fontSize: 11, color: "#a8a29e", marginTop: 3, fontFamily: "'Outfit', sans-serif" }}>{note}</div>}
+        </div>
+      );
+    }
+
+    function InsightCard({ emoji, title, body, accent }) {
+      return (
+        <div style={{
+          background: "#fafaf9", border: `1px solid ${accent}22`,
+          borderLeft: `3px solid ${accent}`, borderRadius: 8, padding: "12px 14px", marginBottom: 8
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#1c1917", fontFamily: "'Outfit', sans-serif", marginBottom: 3 }}>{emoji} {title}</div>
+          <div style={{ fontSize: 12, color: "#57534e", lineHeight: 1.6, fontFamily: "'Outfit', sans-serif" }}>{body}</div>
+        </div>
+      );
+    }
+
+    function TreeRow({ count, poor, canopy }) {
+      const total = 12;
+      const healthy = Math.round((1 - poor / Math.max(count, 1)) * total);
+      return (
+        <div style={{ display: "flex", gap: 3, alignItems: "flex-end", justifyContent: "center", margin: "12px 0" }}>
+          {Array.from({ length: total }).map((_, i) => {
+            const isHealthy = i < healthy;
+            const height = 18 + Math.random() * 14;
+            return (
+              <div key={i} style={{
+                width: 14, height, borderRadius: "50% 50% 2px 2px",
+                background: isHealthy
+                  ? `hsl(${130 + Math.random() * 20}, ${55 + Math.random() * 15}%, ${32 + Math.random() * 12}%)`
+                  : `hsl(${30 + Math.random() * 15}, ${40 + Math.random() * 20}%, ${55 + Math.random() * 15}%)`,
+                opacity: 0.85 + Math.random() * 0.15,
+                transition: "all 0.5s ease", transitionDelay: `${i * 40}ms`
+              }} />
+            );
+          })}
+        </div>
+      );
+    }
+
+    function CompareWidget({ tract }) {
+      const best = SHADE_TRACTS.reduce((a, b) => a.tes > b.tes ? a : b);
+      if (tract.id === best.id) return null;
+      const heatGap = (tract.heat - best.heat).toFixed(1);
+      const canopyGap = best.canopy - tract.canopy;
+      return (
+        <div style={{
+          background: "linear-gradient(135deg, #fef3c7, #fefce8)", border: "1px solid #fde68a",
+          borderRadius: 10, padding: 16, marginTop: 16
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#92400e", fontFamily: "'Outfit', sans-serif", marginBottom: 6 }}>
+            Compared to {best.name} &mdash; Charlottesville's coolest neighborhood
+          </div>
+          <div style={{ fontSize: 12, color: "#78350f", lineHeight: 1.7, fontFamily: "'Outfit', sans-serif" }}>
+            Your neighborhood is <strong>{heatGap}&deg;F hotter</strong> on summer afternoons,
+            has <strong>{canopyGap} percentage points less canopy</strong>,
+            and residents have a <strong>{best.lifeExp - tract.lifeExp}-year shorter life expectancy</strong>.
+            That temperature difference means your body works harder on every hot day &mdash;
+            higher cardiovascular strain, worse sleep, more money on cooling.
+          </div>
+        </div>
+      );
+    }
+
+    function ShadeMap({ tract }) {
+      const mapRef = useRef(null);
+      const mapInstance = useRef(null);
+      useEffect(() => {
+        if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
+        if (!mapRef.current) return;
+        const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false, dragging: true, scrollWheelZoom: false })
+          .setView([tract.lat, tract.lon], 15);
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+          maxZoom: 18
+        }).addTo(map);
+        const color = tract.tes < 60 ? "#ef4444" : tract.tes < 75 ? "#f97316" : tract.tes < 85 ? "#84cc16" : "#22c55e";
+        L.circleMarker([tract.lat, tract.lon], {
+          radius: 30, fillColor: color, color: color, weight: 2, opacity: 0.6, fillOpacity: 0.15
+        }).addTo(map);
+        L.circleMarker([tract.lat, tract.lon], {
+          radius: 8, fillColor: color, color: "#ffffff", weight: 2, opacity: 1, fillOpacity: 0.9
+        }).addTo(map);
+        mapInstance.current = map;
+        return () => { if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
+      }, [tract.id]);
+      return <div ref={mapRef} style={{ height: 160, borderRadius: 10, border: "1px solid #e7e5e4", marginBottom: 16 }} />;
+    }
+
+    function ShadeScore() {
+      const [address, setAddress] = useState("");
+      const [tract, setTract] = useState(null);
+      const [show, setShow] = useState(false);
+      const [searching, setSearching] = useState(false);
+      const inputRef = useRef(null);
+
+      const handleLookup = () => {
+        const match = matchTract(address);
+        if (match) {
+          setSearching(true);
+          setTimeout(() => { setTract(match); setShow(true); setSearching(false); }, 800);
+        } else { setTract(null); setShow(false); }
+      };
+
+      const cityAvgCanopy = 31;
+      const shadeLetter = (tes) => {
+        if (tes >= 90) return { grade: "A", color: "#16a34a", bg: "#dcfce7" };
+        if (tes >= 80) return { grade: "B", color: "#65a30d", bg: "#ecfccb" };
+        if (tes >= 70) return { grade: "B-", color: "#ca8a04", bg: "#fef9c3" };
+        if (tes >= 60) return { grade: "C", color: "#ea580c", bg: "#fff7ed" };
+        if (tes >= 50) return { grade: "D", color: "#dc2626", bg: "#fef2f2" };
+        return { grade: "F", color: "#991b1b", bg: "#fef2f2" };
+      };
+
+      return (
+        <div style={{ minHeight: "100vh", background: "linear-gradient(180deg, #f5f5f0 0%, #ffffff 40%)", fontFamily: "'Outfit', sans-serif", padding: 0 }}>
+          <div style={{ maxWidth: 520, margin: "0 auto", padding: "40px 20px 0", textAlign: "center" }}>
+            <div style={{ fontSize: 32, letterSpacing: -1, marginBottom: 4 }}>{"\ud83c\udf33\ud83c\udf33\ud83c\udf33\ud83c\udf33\ud83c\udf33"}</div>
+            <h1 style={{
+              fontFamily: "'Fraunces', serif", fontSize: 34, fontWeight: 900,
+              color: "#1c1917", lineHeight: 1.1, margin: "8px 0", letterSpacing: -0.5
+            }}>What's Your<br />Shade Score?</h1>
+            <p style={{ fontSize: 15, color: "#78716c", lineHeight: 1.6, maxWidth: 400, margin: "8px auto 24px", fontWeight: 400 }}>
+              Enter your Charlottesville address to see how the trees around you
+              affect your health, your energy bills, and your home value.
+            </p>
+
+            <div style={{ display: "flex", gap: 8, maxWidth: 440, margin: "0 auto", position: "relative" }}>
+              <input ref={inputRef} type="text" value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleLookup()}
+                placeholder="Try: 300 10th St NW or Belmont or 22903"
+                style={{
+                  flex: 1, padding: "14px 16px", fontSize: 15, border: "2px solid #d6d3d1", borderRadius: 12,
+                  outline: "none", fontFamily: "'Outfit', sans-serif", color: "#1c1917", background: "#ffffff",
+                  transition: "border-color 0.2s", boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
+                }}
+                onFocus={(e) => e.target.style.borderColor = "#65a30d"}
+                onBlur={(e) => e.target.style.borderColor = "#d6d3d1"}
+              />
+              <button onClick={handleLookup} style={{
+                padding: "14px 20px", background: "#1c1917", color: "#fafaf9", border: "none", borderRadius: 12,
+                fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'Outfit', sans-serif",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.12)", transition: "transform 0.1s", flexShrink: 0
+              }}
+                onMouseDown={(e) => e.target.style.transform = "scale(0.97)"}
+                onMouseUp={(e) => e.target.style.transform = "scale(1)"}
+              >{searching ? "..." : "Look Up"}</button>
+            </div>
+            {address && !tract && !searching && (
+              <div style={{ fontSize: 12, color: "#a8a29e", marginTop: 8 }}>
+                Try a street name like "Cherry Ave", a neighborhood like "Fifeville", or a zip code
+              </div>
+            )}
+          </div>
+
+          {show && tract && (
+            <div style={{ maxWidth: 520, margin: "0 auto", padding: "24px 20px 40px", animation: "fadeIn 0.5s ease" }}>
+              <div style={{ textAlign: "center", padding: "20px 0 8px", borderBottom: "1px solid #e7e5e4", marginBottom: 20 }}>
+                <div style={{ fontSize: 12, color: "#a8a29e", fontWeight: 500, textTransform: "uppercase", letterSpacing: 1.5 }}>Your Neighborhood</div>
+                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 800, color: "#1c1917", marginTop: 2 }}>{tract.name}</div>
+                <div style={{ fontSize: 12, color: "#78716c", marginTop: 4, lineHeight: 1.5, maxWidth: 400, margin: "4px auto 0" }}>{tract.historyNote}</div>
+                <a href={`https://www.google.com/maps/@${tract.lat},${tract.lon},3a,75y,90t/data=!3m6!1e1!3m4!1s!2e0!7i16384!8i8192`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 4, marginTop: 8,
+                    fontSize: 11, color: "#65a30d", fontWeight: 500, textDecoration: "none",
+                    fontFamily: "'Outfit', sans-serif", padding: "4px 10px",
+                    background: "#f0fdf4", borderRadius: 6, border: "1px solid #bbf7d0"
+                  }}>
+                  {"\ud83d\uddfa\ufe0f"} See this neighborhood on Google Maps
+                </a>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 28, padding: "8px 0 20px" }}>
+                <ScoreRing score={tract.tes} size={130} />
+                <div style={{ textAlign: "left" }}>
+                  <div style={{
+                    display: "inline-block", padding: "6px 14px", borderRadius: 8,
+                    background: shadeLetter(tract.tes).bg, fontFamily: "'Fraunces', serif",
+                    fontSize: 28, fontWeight: 900, color: shadeLetter(tract.tes).color
+                  }}>{shadeLetter(tract.tes).grade}</div>
+                  <div style={{ fontSize: 12, color: "#78716c", marginTop: 6, lineHeight: 1.5 }}>
+                    {tract.tes < 60 ? "Your neighborhood needs urgent tree investment." :
+                     tract.tes < 75 ? "Below average \u2014 room for improvement." :
+                     tract.tes < 85 ? "Decent coverage, but gaps remain." :
+                     "Strong canopy \u2014 help maintain it."}
+                  </div>
+                </div>
+              </div>
+
+              <ShadeMap tract={tract} />
+
+              <div style={{ background: "#fafaf9", borderRadius: 10, padding: "12px 16px", border: "1px solid #e7e5e4", textAlign: "center", marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: "#a8a29e", fontWeight: 500, marginBottom: 2 }}>Your neighborhood's trees &mdash; healthy vs. struggling</div>
+                <TreeRow count={tract.trees} poor={tract.poorCrit} canopy={tract.canopy} />
+                <div style={{ fontSize: 11, color: "#78716c" }}>
+                  {tract.trees} surveyed trees &middot; {tract.poorCrit} in poor or critical condition ({tract.trees > 0 ? Math.round(tract.poorCrit / tract.trees * 100) : 0}%)
+                </div>
+              </div>
+
+              <div style={{
+                background: "#ffffff", borderRadius: 12, padding: "18px 16px",
+                border: "1px solid #e7e5e4", marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.03)"
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#1c1917", fontFamily: "'Fraunces', serif", marginBottom: 14 }}>
+                  How Trees Affect Your Daily Life
+                </div>
+                <GaugeBar label="Tree Canopy Cover" value={tract.canopy} max={60} unit="%" icon={"\ud83c\udf3f"}
+                  color={tract.canopy < 20 ? "#ef4444" : tract.canopy < 30 ? "#f97316" : tract.canopy < 40 ? "#eab308" : "#22c55e"}
+                  note={`City average: ${cityAvgCanopy}% \u00b7 Your area: ${tract.canopy < cityAvgCanopy ? `${cityAvgCanopy - tract.canopy}% below` : `${tract.canopy - cityAvgCanopy}% above`} average`} />
+                <GaugeBar label="Summer Afternoon Temp" value={tract.heat} max={110} unit={"\u00b0F"} icon={"\ud83c\udf21\ufe0f"}
+                  color={tract.heat > 102 ? "#ef4444" : tract.heat > 98 ? "#f97316" : tract.heat > 95 ? "#eab308" : "#22c55e"}
+                  note="Measured during August 2021 Heat Watch campaign" />
+                <GaugeBar label="Energy Burden" value={tract.energyBurden} max={12} unit="%" icon={"\ud83d\udca1"}
+                  color={tract.energyBurden > 8 ? "#ef4444" : tract.energyBurden > 5 ? "#f97316" : tract.energyBurden > 3.5 ? "#eab308" : "#22c55e"}
+                  note={`% of household income spent on utilities \u00b7 City avg: 4.5%`} />
+                <GaugeBar label="Heart Disease Rate" value={tract.heartDisease} max={10} unit="%" icon={"\u2764\ufe0f"}
+                  color={tract.heartDisease > 7 ? "#ef4444" : tract.heartDisease > 6 ? "#f97316" : tract.heartDisease > 5 ? "#eab308" : "#22c55e"}
+                  note="Coronary heart disease prevalence in your census tract" />
+                <GaugeBar label="Asthma Rate" value={tract.asthma} max={13} unit="%" icon={"\ud83e\udec1"}
+                  color={tract.asthma > 10 ? "#ef4444" : tract.asthma > 9 ? "#f97316" : "#eab308"}
+                  note="Current asthma prevalence in your census tract" />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#1c1917", fontFamily: "'Fraunces', serif", marginBottom: 10 }}>
+                  What This Means For You
+                </div>
+                <InsightCard emoji={"\ud83c\udfe0"} title="Home Value Impact" accent="#2563eb"
+                  body={tract.canopy < 30
+                    ? `Research shows each large shade tree within 50 feet of a home adds roughly $3,000\u2013$12,000 to property value. Your area has room for an estimated $${tract.potentialValueAdd.toLocaleString()} in potential property value uplift through canopy restoration.`
+                    : `Your neighborhood's mature canopy is already contributing to property values. Each large shade tree adds an estimated $3,000\u2013$12,000 to nearby home values. Protecting existing trees preserves this investment.`} />
+                <InsightCard emoji={"\ud83d\udcb0"} title="Cooling Costs" accent="#16a34a"
+                  body={tract.canopy < 25
+                    ? `With only ${tract.canopy}% canopy cover, homes here get little natural shade. Well-placed shade trees can reduce air conditioning costs by 20-35%. For a typical home in this area, that's an estimated $180\u2013$400/year in potential savings \u2014 money that could stay in residents' pockets.`
+                    : `Your ${tract.canopy}% canopy is already saving you an estimated $${tract.estCoolingSave}/year on cooling compared to Charlottesville's lowest-canopy neighborhoods. Mature trees are your most cost-effective air conditioner.`} />
+                <InsightCard emoji={"\u2764\ufe0f"} title="Cardiovascular Health" accent="#dc2626"
+                  body={tract.heartDisease > 6.5
+                    ? `Your tract's ${tract.heartDisease}% coronary heart disease rate is well above the city average. Heat stress is a significant cardiovascular risk factor \u2014 and with ${tract.heat}\u00b0F afternoon temps and limited shade, residents' hearts are working harder on every hot day. More canopy means cooler air, lower blood pressure, and less strain.`
+                    : `Your neighborhood's canopy helps keep temperatures manageable, which research links to lower cardiovascular strain. The heart disease rate here (${tract.heartDisease}%) reflects that protective effect.`} />
+                <InsightCard emoji={"\ud83e\uddd2"} title="Kids & Outdoor Time" accent="#7c3aed"
+                  body={tract.canopy < 25
+                    ? `Children in low-canopy neighborhoods spend less time outdoors during summer heat, affecting physical activity and development. Your nearest shaded park is ${tract.nearestPark} (${tract.parkDist}), but sidewalk shade along the route matters just as much as the destination.`
+                    : `Your neighborhood's tree cover creates walkable shade corridors for children heading to ${tract.nearestPark} (${tract.parkDist}). Shade along routes \u2014 not just at destinations \u2014 determines whether kids walk or stay inside.`} />
+                {tract.energyBurden > 6 && (
+                  <InsightCard emoji={"\u26a1"} title="Energy Justice" accent="#ea580c"
+                    body={`Residents here spend ${tract.energyBurden}% of their income on utilities \u2014 ${(tract.energyBurden / 2.4).toFixed(1)}\u00d7 what residents in Charlottesville's shadiest neighborhoods pay. This isn't just about comfort \u2014 it's a financial burden that compounds every other cost of living in this neighborhood. Every degree of cooling that trees provide is money back in your pocket.`} />
+                )}
+              </div>
+
+              <CompareWidget tract={tract} />
+
+              <TreeSimulator tract={tract} />
+
+              <div style={{
+                background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: 16, marginTop: 16
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#166534", fontFamily: "'Fraunces', serif", marginBottom: 8 }}>
+                  What You Can Do
+                </div>
+                <div style={{ fontSize: 12, color: "#15803d", lineHeight: 1.7 }}>
+                  <strong>Plant a tree:</strong> Contact Charlottesville ReLeaf or the City of Promise ambassador program for free or subsidized trees.
+                  <br /><br />
+                  <strong>Protect existing trees:</strong> If you see a healthy tree slated for removal, speak up at your neighborhood planning meeting. Mature trees provide 5-10&times; more cooling than new plantings.
+                  <br /><br />
+                  <strong>Advocate:</strong> Share your Shade Score with neighbors. Bring it to City Council. Ask why your neighborhood's canopy is {tract.canopy}% when others have {SHADE_TRACTS.reduce((a, b) => a.canopy > b.canopy ? a : b).canopy}%.
+                  <br /><br />
+                  <strong>Learn more:</strong> Check your Tree Equity Score at treeequityscore.org, explore Charlottesville's Heat Watch data, and connect with the Tree Commission.
+                </div>
+              </div>
+
+              <div style={{ marginTop: 16, fontSize: 10, color: "#a8a29e", lineHeight: 1.6, borderTop: "1px solid #e7e5e4", paddingTop: 12 }}>
+                <strong>Sources:</strong> Tree data from Charlottesville tree inventory; health metrics from CDC PLACES 2025;
+                demographics from ACS 2019-2023; heat data from Charlottesville Heat Watch 2021; Tree Equity Scores from
+                American Forests; life expectancy from County Health Rankings; energy burden from Community Climate Collaborative;
+                property value estimates from USDA Forest Service research on urban tree valuation.
+                <br /><br />
+                <em>Built by UVA Social Entrepreneurship students for the Charlottesville community.</em>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* =========================================================
+       LANDING PAGE
+       ========================================================= */
+    function Landing({ onNavigate }) {
+      return (
+        <div style={{
+          minHeight: "100vh",
+          background: "linear-gradient(170deg, #f8faf5 0%, #f0f4ec 30%, #ffffff 70%)",
+          fontFamily: "'Outfit', sans-serif"
+        }}>
+          <div style={{ maxWidth: 640, margin: "0 auto", padding: "60px 24px 48px", textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 8, letterSpacing: 4 }}>{"\ud83c\udf33"}</div>
+            <h1 style={{
+              fontFamily: "'Fraunces', serif", fontSize: 40, fontWeight: 900,
+              color: "#1c1917", lineHeight: 1.08, margin: "0 0 12px", letterSpacing: -1
+            }}>Charlottesville<br />Tree Equity</h1>
+            <p style={{ fontSize: 16, color: "#57534e", lineHeight: 1.7, maxWidth: 480, margin: "0 auto 12px" }}>
+              Two tools exploring how tree canopy gaps compound health disparities
+              across Charlottesville's neighborhoods &mdash; and what we can do about it.
+            </p>
+            <p style={{ fontSize: 13, color: "#a8a29e", lineHeight: 1.5, maxWidth: 420, margin: "0 auto 40px" }}>
+              Built in a 90-minute workshop by UVA Batten School students using
+              open data and AI-assisted design thinking.
+            </p>
+
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
+              {/* Dashboard card */}
+              <button onClick={() => onNavigate("dashboard")} style={{
+                flex: "1 1 260px", maxWidth: 320, background: "#020617", border: "none", borderRadius: 16,
+                padding: "28px 24px", cursor: "pointer", textAlign: "left",
+                boxShadow: "0 4px 24px rgba(0,0,0,0.12)", transition: "transform 0.2s, box-shadow 0.2s"
+              }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.18)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.12)"; }}
+              >
+                <div style={{ fontSize: 10, color: "#dc2626", fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontFamily: "'DM Sans', sans-serif" }}>
+                  For City Council
+                </div>
+                <div style={{
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 20, fontWeight: 700,
+                  color: "#f8fafc", lineHeight: 1.2, marginBottom: 8
+                }}>Tree Equity<br />Dashboard</div>
+                <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }}>
+                  Compare 10 census tracts across health, income, canopy, and heat metrics.
+                  See how shade maps to life expectancy.
+                </div>
+                <div style={{
+                  marginTop: 16, display: "inline-flex", alignItems: "center", gap: 6,
+                  fontSize: 13, fontWeight: 600, color: "#93c5fd", fontFamily: "'DM Sans', sans-serif"
+                }}>Explore dashboard <span>&rarr;</span></div>
+              </button>
+
+              {/* Shade Score card */}
+              <button onClick={() => onNavigate("shade")} style={{
+                flex: "1 1 260px", maxWidth: 320, background: "#ffffff",
+                border: "2px solid #e7e5e4", borderRadius: 16,
+                padding: "28px 24px", cursor: "pointer", textAlign: "left",
+                boxShadow: "0 4px 24px rgba(0,0,0,0.06)", transition: "transform 0.2s, box-shadow 0.2s, border-color 0.2s"
+              }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.1)"; e.currentTarget.style.borderColor = "#65a30d"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.06)"; e.currentTarget.style.borderColor = "#e7e5e4"; }}
+              >
+                <div style={{ fontSize: 10, color: "#65a30d", fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontFamily: "'Outfit', sans-serif" }}>
+                  For Residents
+                </div>
+                <div style={{
+                  fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 800,
+                  color: "#1c1917", lineHeight: 1.2, marginBottom: 8
+                }}>What's Your<br />Shade Score?</div>
+                <div style={{ fontSize: 12, color: "#78716c", lineHeight: 1.6, fontFamily: "'Outfit', sans-serif" }}>
+                  Look up your address to see your personal shade score, health risks,
+                  energy costs, and what you can do.
+                </div>
+                <div style={{
+                  marginTop: 16, display: "inline-flex", alignItems: "center", gap: 6,
+                  fontSize: 13, fontWeight: 600, color: "#65a30d", fontFamily: "'Outfit', sans-serif"
+                }}>Check your score <span>&rarr;</span></div>
+              </button>
+            </div>
+
+            {/* Data summary */}
+            <div style={{ marginTop: 48, display: "flex", gap: 24, justifyContent: "center", flexWrap: "wrap" }}>
+              {[
+                { n: "200", label: "Trees surveyed" },
+                { n: "10", label: "Census tracts" },
+                { n: "6", label: "Data sources" },
+                { n: "10 yr", label: "Life expectancy gap" },
+              ].map((s, i) => (
+                <div key={i} style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 800, color: "#1c1917" }}>{s.n}</div>
+                  <div style={{ fontSize: 11, color: "#a8a29e", fontWeight: 500 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{
+              marginTop: 48, padding: "16px 20px", borderRadius: 10,
+              background: "#fafaf9", border: "1px solid #e7e5e4",
+              fontSize: 11, color: "#a8a29e", lineHeight: 1.6, textAlign: "left"
+            }}>
+              <strong style={{ color: "#78716c" }}>About this project:</strong> These tools were built during a Design Thinking
+              workshop at UVA's Batten School of Leadership and Public Policy. Students started with a .csv of Charlottesville's
+              tree inventory and, over 90 minutes, combined it with public health data, census demographics, heat measurements,
+              and tree equity scores to build two distinct tools &mdash; one for policy makers and one for residents &mdash;
+              that make the connection between shade and health visible and actionable.
+              <br /><br />
+              <strong style={{ color: "#78716c" }}>Data sources:</strong> Charlottesville Tree Inventory; CDC PLACES 2025;
+              ACS 2019-2023; Charlottesville Heat Watch Campaign 2021; American Forests Tree Equity Scores;
+              County Health Rankings; Community Climate Collaborative; USDA Forest Service urban tree valuation research.
+            </div>
+
+            <div style={{ marginTop: 20, fontSize: 11, color: "#d6d3d1" }}>
+              UVA Batten School &middot; Social Entrepreneurship &middot; March 2026
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* =========================================================
+       APP — hash-based routing
+       ========================================================= */
+    function App() {
+      const [view, setView] = useState(() => {
+        const h = window.location.hash.replace("#", "");
+        if (h === "dashboard") return "dashboard";
+        if (h === "shade") return "shade";
+        return "home";
+      });
+
+      useEffect(() => {
+        const onHash = () => {
+          const h = window.location.hash.replace("#", "");
+          if (h === "dashboard") setView("dashboard");
+          else if (h === "shade") setView("shade");
+          else setView("home");
+        };
+        window.addEventListener("hashchange", onHash);
+        return () => window.removeEventListener("hashchange", onHash);
+      }, []);
+
+      const navigate = (v) => {
+        window.location.hash = v === "home" ? "" : v;
+        setView(v);
+        window.scrollTo(0, 0);
+      };
+
+      if (view === "dashboard") return (<div><NavBar current="dashboard" onNavigate={navigate} /><Dashboard /></div>);
+      if (view === "shade") return (<div><NavBar current="shade" onNavigate={navigate} /><ShadeScore /></div>);
+      return <Landing onNavigate={navigate} />;
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
 </body>
 </html>
